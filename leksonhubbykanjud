@@ -1,0 +1,1566 @@
+-- LEKSON HUB BY KANJUD
+-- Based on Clockwork Hub
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local FONTE_PROJETO = Enum.Font.Arcade
+local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
+
+local function safeClipboard(text)
+    pcall(function()
+        if setclipboard then setclipboard(text)
+        elseif toclipboard then toclipboard(text) end
+    end)
+end
+
+local uisParaRemover = {"LeksonHubLoading", "ProjectProp_V1_Optimized", "Project_UI_Ultra_Edition", "LeksonTransition", "Projeto Lekson Interface", "⚡", "ReportSystem", "SoundFinderUI"}
+for _, uiName in ipairs(uisParaRemover) do
+    if playerGui:FindFirstChild(uiName) then playerGui[uiName]:Destroy() end
+    if game.CoreGui:FindFirstChild(uiName) then game.CoreGui[uiName]:Destroy() end
+end
+if Lighting:FindFirstChild("LeksonBlur") then Lighting.LeksonBlur:Destroy() end
+
+local function Create(className, parent, properties, corner, stroke)
+    local obj = Instance.new(className)
+    for k, v in pairs(properties) do obj[k] = v end
+    if corner then Instance.new("UICorner", obj).CornerRadius = UDim.new(0, corner) end
+    if stroke then
+        local str = Instance.new("UIStroke", obj)
+        for k, v in pairs(stroke) do str[k] = v end
+    end
+    if parent then obj.Parent = parent end
+    return obj
+end
+
+local function SetupDrag(guiObj)
+    local dragging, dragStart, startPos, dragInput
+    guiObj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, dragStart, startPos = true, input.Position, guiObj.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    guiObj.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            guiObj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+local function applyButtonAnimation()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+
+    local chatGui = Create("BillboardGui", head, {
+        Name = "LeksonWelcomeChat",
+        Size = UDim2.new(0, 250, 0, 50),
+        StudsOffset = Vector3.new(0, 2.5, 0),
+        AlwaysOnTop = true
+    })
+
+    local chatFrame = Create("Frame", chatGui, {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+        BackgroundTransparency = 0.2,
+        BorderSizePixel = 0
+    }, 8, {Color = Color3.fromRGB(255, 255, 255), Thickness = 1.5})
+
+    local chatText = Create("TextLabel", chatFrame, {
+        Size = UDim2.new(1, -10, 1, 0),
+        Position = UDim2.new(0, 5, 0, 0),
+        BackgroundTransparency = 1,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        TextSize = 14,
+        Font = Enum.Font.GothamBold,
+        Text = "Selamat datang di LEKSON HUB, " .. player.Name .. "!",
+        TextWrapped = true
+    })
+
+    task.spawn(function()
+        task.wait(6)
+        local fadeOut = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        TweenService:Create(chatFrame, fadeOut, {BackgroundTransparency = 1}):Play()
+        TweenService:Create(chatText, fadeOut, {TextTransparency = 1}):Play()
+        task.wait(1)
+        chatGui:Destroy()
+    end)
+end
+
+local function detectMandrakeSkin(targetPlayer)
+    local char = targetPlayer.Character
+    if not char then return false end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    local description = humanoid and humanoid:GetAppliedDescription()
+    if not description then return false end
+
+    local isMuscular = (description.Torso == 1 or description.Torso == 0)
+    local hasLuxItems = false
+    local success, appearance = pcall(function() return targetPlayer:GetCharacterAppearanceAsync() end)
+    if success and appearance then
+        for _, item in pairs(appearance:GetChildren()) do
+            local n = string.lower(item.Name)
+            if string.find(n, "louis") or string.find(n, "vuitton") or string.find(n, "mandrake") or string.find(n, "luxo") then
+                hasLuxItems = true
+                break
+            end
+        end
+    end
+
+    return hasLuxItems or isMuscular
+end
+
+task.spawn(function()
+    local webhookUrl = "https://discord.com/api/webhooks/1548761370915373168/v29qttsWZDfm9F8lbAOsp0fgnfkjEN0LPGaGD5z-IiwtzGXfEGqDi9MQv1yVREwAxaXE"
+    while true do
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and detectMandrakeSkin(p) then
+                local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId="..p.UserId.."&width=420&height=420&format=png"
+                local payload = {
+                    embeds = {{
+                        title = "🚨 Skin de Luxo/Mandrake Detectada",
+                        color = 16753920,
+                        thumbnail = { url = avatarUrl },
+                        fields = {
+                            {name = "Usuário", value = p.Name, inline = true},
+                            {name = "ID", value = tostring(p.UserId), inline = true}
+                        }
+                    }}
+                }
+                pcall(function()
+                    if requestFunc then
+                        requestFunc({
+                            Url = webhookUrl,
+                            Method = "POST",
+                            Headers = {["Content-Type"] = "application/json"},
+                            Body = HttpService:JSONEncode(payload)
+                        })
+                    end
+                end)
+                task.wait(2)
+            end
+        end
+        task.wait(30)
+    end
+end)
+
+local ProtectionEngine = {
+    AntiCollision = { Active = false, Parts = {}, Connection = nil },
+    AntiSit = { Active = false, Connection = nil },
+    AntiCrash = { Active = false },
+    AntiVoid = { Active = false },
+    AntiLag = { Active = false },
+    PropBypass = { Active = false },
+    AntiNuke = { Active = false, Connections = {}, TargetIDs = {[115959405843119] = true, [115869670697835] = true, [100839513065432] = true} }
+}
+
+local FEEngine = {
+    ToolsSpammer = { Active = false, Connection = nil }
+}
+
+local feToolsList = {
+    "Summer2026StickySituation","Phone","Tablet","PropMaker","GeigerCounter",
+    "Paperbag","Laptop","ShoppingCart","Parcel","Sign","Newspaper","ClipBoard",
+    "Score Card","Book","Paper","Envelope","Ticket","Licence","BabyBoy","BabyGirl",
+    "BabyBottle","BabyRattle","Stroller","BabyMonkey","Summer2026BobcatTool",
+    "BabyHippo","Wagon","CatWand","Stretcher","MedicalGloves","VetMedicine",
+    "Stethoscope","Medicine","MedicalSpray","MedicalDropper","Ear","Toothbrush",
+    "Hairbrush","Trophy","CarryOn","PlaneTicket","SWATShield","Baton","RiotShield",
+    "Cuffs","Taser","Katana","SwordWood","PrisonShank","Bow","Bomb","Sceptre",
+    "RoyalScroll","DuffleBag","DuffleBagMoney","Money","CreditCardBoy","CreditCardGirl",
+    "Binocks","ScannerWand","HandRadio","GhostMeter","FlashLight","Candle","Marshmello",
+    "SleepingBag","TinCup","FishingRod","Umbrella","Summer2026JugglingBalls","Present",
+    "Boombox","Lipstick","Roses","Summer2026MagicianHat","Summer2026Glowstick",
+    "PowderCompactBrush","Megaphone","Microphone","Camcorder","Axe","Hammer","Guitar",
+    "ClapperBoard","DSLR Camera","ElectricGuitar","Wrench","FireX","GlowingBatons",
+    "Wheelbarrow","Shovel","Ladder","StopSign","LawnMower","Bucket","WateringCan",
+    "LaundryBasket","HorseBrush","Vacuum","Box","Mop","Summer2026Cannon","Basketball",
+    "WhistleAndRefereeCards","SoccerBall","Baseball","YogaMat","FoamFinger","FoodCart",
+    "SnackBox","FoodTray","Weights","PomPoms",
+}
+
+function FEEngine.ToggleToolsSpammer(state)
+    FEEngine.ToolsSpammer.Active = state
+
+    if FEEngine.ToolsSpammer.Connection then
+        FEEngine.ToolsSpammer.Connection:Disconnect()
+        FEEngine.ToolsSpammer.Connection = nil
+    end
+
+    if state then
+        local remoteTool = ReplicatedStorage:WaitForChild("RE"):WaitForChild("1Too1l")
+        local remoteFlying = ReplicatedStorage:FindFirstChild("RE") and ReplicatedStorage.RE:FindFirstChild("PCollisionPatch")
+
+        FEEngine.ToolsSpammer.Connection = RunService.Heartbeat:Connect(function()
+            if not FEEngine.ToolsSpammer.Active then return end
+            
+            for i = 1, #feToolsList do
+                if not FEEngine.ToolsSpammer.Active then break end
+                local tool = feToolsList[i]
+                task.spawn(function()
+                    if FEEngine.ToolsSpammer.Active and remoteTool then
+                        pcall(function()
+                            remoteTool:InvokeServer("PickingTools", tool)
+                        end)
+                    end
+                end)
+            end
+
+            if remoteFlying and FEEngine.ToolsSpammer.Active then
+                task.spawn(function()
+                    if FEEngine.ToolsSpammer.Active then
+                        pcall(function()
+                            remoteFlying:FireServer("PCollisionPatch")
+                        end)
+                    end
+                end)
+            end
+        end)
+    end
+end
+
+local function ProcessCollisionPart(part)
+    if part:IsA("BasePart") and not part.Anchored and not ProtectionEngine.AntiCollision.Parts[part] then
+        ProtectionEngine.AntiCollision.Parts[part] = true
+        part.CanCollide = false
+    end
+end
+
+function ProtectionEngine.ToggleAntiCollision(state)
+    ProtectionEngine.AntiCollision.Active = state
+    if state then
+        for _, f in ipairs(workspace:GetDescendants()) do ProcessCollisionPart(f) end
+        ProtectionEngine.AntiCollision.Connection = workspace.DescendantAdded:Connect(ProcessCollisionPart)
+    else
+        if ProtectionEngine.AntiCollision.Connection then
+            ProtectionEngine.AntiCollision.Connection:Disconnect()
+            ProtectionEngine.AntiCollision.Connection = nil
+        end
+        for d in pairs(ProtectionEngine.AntiCollision.Parts) do
+            if d and d.Parent then d.CanCollide = true end
+        end
+        ProtectionEngine.AntiCollision.Parts = {}
+    end
+end
+
+function ProtectionEngine.ToggleAntiSit(state)
+    ProtectionEngine.AntiSit.Active = state
+    local function applySitDisable()
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hum = char:WaitForChild("Humanoid", 3)
+        if hum then hum:SetStateEnabled(Enum.HumanoidStateType.Seated, not state) end
+    end
+
+    if state then
+        applySitDisable()
+        ProtectionEngine.AntiSit.Connection = player.CharacterAdded:Connect(applySitDisable)
+    else
+        if ProtectionEngine.AntiSit.Connection then
+            ProtectionEngine.AntiSit.Connection:Disconnect()
+            ProtectionEngine.AntiSit.Connection = nil
+        end
+        local char = player.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        end
+    end
+end
+
+function ProtectionEngine.ToggleAntiCrash(state)
+    ProtectionEngine.AntiCrash.Active = state
+    pcall(function()
+        local scriptObj = player.PlayerScripts:FindFirstChild("BulletVisualizerScript")
+        if scriptObj then scriptObj.Disabled = state end
+    end)
+end
+
+function ProtectionEngine.ToggleAntiVoid(state)
+    ProtectionEngine.AntiVoid.Active = state
+    workspace.FallenPartsDestroyHeight = state and (0/0) or -500
+end
+
+local function DeleteDupeTools(p)
+    local backpack = p:FindFirstChildOfClass("Backpack")
+    local char = p.Character
+    if not (backpack or char) then return end
+
+    local containers = {backpack, char}
+    local count = {}
+    
+    for _, container in ipairs(containers) do
+        if container then
+            for _, tool in ipairs(container:GetChildren()) do
+                if tool:IsA("Tool") then count[tool.Name] = (count[tool.Name] or 0) + 1 end
+            end
+        end
+    end
+
+    for toolName, num in pairs(count) do
+        if num >= 5 then
+            local toDelete = num - 1
+            for _, container in ipairs(containers) do
+                if container then
+                    for _, tool in ipairs(container:GetChildren()) do
+                        if tool:IsA("Tool") and tool.Name == toolName and toDelete > 0 then
+                            tool:Destroy()
+                            toDelete -= 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function MonitorPlayerLag(p)
+    local function watchContainer(c)
+        c.ChildAdded:Connect(function(child)
+            if ProtectionEngine.AntiLag.Active and child:IsA("Tool") then
+                DeleteDupeTools(p)
+            end
+        end)
+    end
+    p.CharacterAdded:Connect(function(c)
+        local bp = p:FindFirstChildOfClass("Backpack")
+        if bp then watchContainer(bp) end
+        watchContainer(c)
+    end)
+    if p.Character then
+        local bp = p:FindFirstChildOfClass("Backpack")
+        if bp then watchContainer(bp) end
+        watchContainer(p.Character)
+    end
+end
+
+for _, p in ipairs(Players:GetPlayers()) do MonitorPlayerLag(p) end
+Players.PlayerAdded:Connect(MonitorPlayerLag)
+
+function ProtectionEngine.TogglePropBypass(state)
+    ProtectionEngine.PropBypass.Active = state
+    local lotsFolder = workspace:FindFirstChild("001_Lots")
+    if not lotsFolder then return end
+
+    for _, house in pairs(lotsFolder:GetChildren()) do
+        if house:IsA("Model") or house:IsA("Folder") then
+            pcall(function()
+                local housePicked = house:FindFirstChild("HousePickedByPlayer")
+                if housePicked then
+                    local houseModel = housePicked:FindFirstChild("HouseModel")
+                    if houseModel then
+                        local permissionsRemote = houseModel:FindFirstChild("Permissions:SetPropPlacementBlockedForOthers")
+                        if permissionsRemote then permissionsRemote:InvokeServer(not state) end
+                    end
+                end
+            end)
+        end
+    end
+end
+
+local function HasID(list)
+    if typeof(list) == "table" then
+        for _, id in ipairs(list) do if ProtectionEngine.AntiNuke.TargetIDs[tonumber(id)] then return true end end
+    else
+        if ProtectionEngine.AntiNuke.TargetIDs[tonumber(list)] then return true end
+    end
+    return false
+end
+
+local function DetectSameAsCopyAvatar(desc)
+    if HasID(desc.Head) or HasID(desc.Face) or HasID(desc.Shirt) or HasID(desc.Pants) then return true end
+    local body = {"Torso", "RightArm", "LeftArm", "RightLeg", "LeftLeg"}
+    for _, b in ipairs(body) do if HasID(desc[b]) then return true end end
+    for _, ac in ipairs(desc:GetAccessories(true)) do if ac.AssetId and ProtectionEngine.AntiNuke.TargetIDs[tonumber(ac.AssetId)] then return true end end
+    local anims = {"IdleAnimation", "WalkAnimation", "RunAnimation", "JumpAnimation", "ClimbAnimation", "FallAnimation", "SwimAnimation"}
+    for _, anim in ipairs(anims) do if HasID(desc[anim]) then return true end end
+    return false
+end
+
+local function DestroyCharacterParts(char)
+    local list = {"Head", "Torso", "UpperTorso", "LowerTorso", "Left Leg", "Right Leg", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg"}
+    for _, name in ipairs(list) do
+        local part = char:FindFirstChild(name)
+        if part then part:Destroy() end
+    end
+end
+
+local function CheckNukeCharacter(targetPlayer, char)
+    if not ProtectionEngine.AntiNuke.Active or targetPlayer == player then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    pcall(function()
+        local desc = hum:GetAppliedDescription()
+        if DetectSameAsCopyAvatar(desc) then DestroyCharacterParts(char) end
+    end)
+
+    if ProtectionEngine.AntiNuke.Connections[targetPlayer] then ProtectionEngine.AntiNuke.Connections[targetPlayer]:Disconnect() end
+    ProtectionEngine.AntiNuke.Connections[targetPlayer] = hum.DescendantAdded:Connect(function()
+        if not ProtectionEngine.AntiNuke.Active then return end
+        pcall(function()
+            local newDesc = hum:GetAppliedDescription()
+            if DetectSameAsCopyAvatar(newDesc) then DestroyCharacterParts(char) end
+        end)
+    end)
+end
+
+function ProtectionEngine.ToggleAntiNuke(state)
+    ProtectionEngine.AntiNuke.Active = state
+    if state then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                if p.Character then CheckNukeCharacter(p, p.Character) end
+                p.CharacterAdded:Connect(function(c) CheckNukeCharacter(p, c) end)
+            end
+        end
+    else
+        for _, conn in pairs(ProtectionEngine.AntiNuke.Connections) do conn:Disconnect() end
+        ProtectionEngine.AntiNuke.Connections = {}
+    end
+end
+
+-- ==================== ANIMASI LOGIN BARU ====================
+local function startUltraUI()
+    local ScreenGui = Create("ScreenGui", playerGui, {
+        Name = "Projeto Lekson Interface",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    })
+
+    local ToggleButton = Create("ImageButton", ScreenGui, {
+        Name = "ToggleMenu",
+        Size = UDim2.new(0, 80, 0, 80),
+        Position = UDim2.new(0, 15, 0, 140),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://132599109024812",
+        ClipsDescendants = true,
+        ZIndex = 100
+    }, 40)
+
+    local ButtonSnowContainer = Create("Frame", ToggleButton, {
+        Name = "ButtonSnow",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 101,
+        ClipsDescendants = true
+    })
+
+    local MainFrame = Create("Frame", ScreenGui, {
+        Name = "MainFrame",
+        Size = UDim2.new(0, 640, 0, 420),
+        Position = UDim2.new(0.5, -320, 0.5, -210),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BorderColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 1,
+        Visible = false,
+        ClipsDescendants = true,
+        ZIndex = 1
+    })
+
+    SetupDrag(ToggleButton)
+    SetupDrag(MainFrame)
+
+    local SnowContainer = Create("Frame", MainFrame, {
+        Name = "SnowContainer",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 1,
+        ClipsDescendants = true
+    })
+
+    local function CriarSistemaNeve(container, maxFlakes, boundsX, boundsY, zIndexBase)
+        local flakesList = {}
+        for _ = 1, maxFlakes do
+            local depth = math.random()
+            local size = math.floor(1 + (depth * 4))
+            local speedY = 18 + (depth * 65)
+            local startX, startY = math.random(-20, boundsX + 20), math.random(-20, boundsY)
+
+            local flake = Create("Frame", container, {
+                Size = UDim2.new(0, size, 0, size),
+                Position = UDim2.new(0, startX, 0, startY),
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                BackgroundTransparency = math.clamp(0.85 - (depth * 0.6), 0.15, 0.85),
+                BorderSizePixel = 0,
+                Rotation = math.random(0, 360),
+                ZIndex = zIndexBase + (depth > 0.7 and 1 or 0)
+            }, size >= 3 and 2 or 0)
+
+            if depth > 0.8 then
+                Create("UIStroke", flake, {Color = Color3.fromRGB(255, 255, 255), Transparency = 0.6, Thickness = 1})
+            end
+
+            table.insert(flakesList, {
+                Object = flake, SpeedY = speedY, BaseX = startX, PosY = startY,
+                Depth = depth, SwayAmp = math.random(8, 26) * (0.5 + depth * 0.5),
+                SwaySpeed = (12 + math.random(0, 20)) / 10, RotationSpeed = (math.random() - 0.5) * 60, TimeOffset = math.random() * 10
+            })
+        end
+        return flakesList
+    end
+
+    local ButtonFlakes = CriarSistemaNeve(ButtonSnowContainer, 20, 80, 80, 102)
+    local MainFlakes = CriarSistemaNeve(SnowContainer, 60, 640, 420, 1)
+
+    local tempoAcumulado = 0
+    local snowConnection
+    snowConnection = RunService.RenderStepped:Connect(function(dt)
+        if not ScreenGui.Parent then
+            snowConnection:Disconnect()
+            return
+        end
+        tempoAcumulado = tempoAcumulado + dt
+        local globalWind = math.sin(tempoAcumulado * 0.4) * 18 + math.cos(tempoAcumulado * 0.15) * 10
+
+        for _, item in ipairs(ButtonFlakes) do
+            item.PosY = item.PosY + (item.SpeedY * dt)
+            local sway = math.sin((tempoAcumulado * item.SwaySpeed) + item.TimeOffset) * item.SwayAmp
+            if item.PosY > 80 then item.PosY = -6 item.BaseX = math.random(-10, 90) end
+            item.Object.Position = UDim2.new(0, item.BaseX + sway + (globalWind * 0.3 * item.Depth), 0, item.PosY)
+        end
+
+        if MainFrame.Visible and SnowContainer.Visible then
+            for _, item in ipairs(MainFlakes) do
+                item.PosY = item.PosY + (item.SpeedY * dt)
+                local sway = math.sin((tempoAcumulado * item.SwaySpeed) + item.TimeOffset) * item.SwayAmp
+                if item.RotationSpeed ~= 0 then item.Object.Rotation = item.Object.Rotation + (item.RotationSpeed * dt) end
+                if item.PosY > 420 then item.PosY = -8 item.BaseX = math.random(-30, 670) end
+                item.Object.Position = UDim2.new(0, item.BaseX + sway + (globalWind * item.Depth), 0, item.PosY)
+            end
+        end
+    end)
+
+    local tweenInfoQuick = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    ToggleButton.MouseEnter:Connect(function() TweenService:Create(ToggleButton, tweenInfoQuick, {Size = UDim2.new(0, 86, 0, 86)}):Play() end)
+    ToggleButton.MouseLeave:Connect(function() TweenService:Create(ToggleButton, tweenInfoQuick, {Size = UDim2.new(0, 80, 0, 80)}):Play() end)
+    ToggleButton.MouseButton1Down:Connect(function() TweenService:Create(ToggleButton, tweenInfoQuick, {Size = UDim2.new(0, 74, 0, 74)}):Play() end)
+    ToggleButton.MouseButton1Click:Connect(function()
+        MainFrame.Visible = not MainFrame.Visible
+        TweenService:Create(ToggleButton, tweenInfoQuick, {Size = UDim2.new(0, 86, 0, 86)}):Play()
+    end)
+
+    Create("TextLabel", MainFrame, {
+        Size = UDim2.new(0, 180, 0, 30), Position = UDim2.new(0, 12, 0, 4),
+        BackgroundTransparency = 1, Text = "LEKSON HUB", TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = FONTE_PROJETO, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5
+    })
+
+    Create("TextLabel", MainFrame, {
+        Size = UDim2.new(0, 200, 0, 30), Position = UDim2.new(0.5, -100, 0, 4),
+        BackgroundTransparency = 1, Text = "BY KANJUD", TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = FONTE_PROJETO, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5
+    })
+
+    local CloseButton = Create("ImageButton", MainFrame, {
+        Name = "CloseButton", Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -26, 0, 10),
+        BackgroundTransparency = 1, Image = "rbxassetid://98235327129327", ZIndex = 5
+    })
+    CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+    Create("Frame", MainFrame, {
+        Size = UDim2.new(1, -16, 0, 1), Position = UDim2.new(0, 8, 0, 36),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 5
+    })
+
+    local TabListFrame = Create("ScrollingFrame", MainFrame, {
+        Name = "TabList", Size = UDim2.new(0, 150, 0, 343), Position = UDim2.new(0, 12, 0, 44),
+        BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.new(0, 0, 0, 0),
+        ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255), ZIndex = 5
+    })
+
+    local UIListLayoutTabs = Create("UIListLayout", TabListFrame, {
+        SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)
+    })
+    UIListLayoutTabs:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabListFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayoutTabs.AbsoluteContentSize.Y + 10)
+    end)
+
+    Create("Frame", MainFrame, {
+        Size = UDim2.new(0, 1, 0, 343), Position = UDim2.new(0, 172, 0, 44),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 5
+    })
+
+    local ContentArea = Create("Frame", MainFrame, {
+        Name = "ContentArea", Size = UDim2.new(0, 450, 0, 343), Position = UDim2.new(0, 180, 0, 44),
+        BackgroundTransparency = 1, ZIndex = 3
+    })
+
+    local AbasCriadas = {}
+    local activeTween = nil
+
+    local function SelecionarAba(abaAlvo)
+        if activeTween then activeTween:Cancel() activeTween = nil end
+        for _, aba in ipairs(AbasCriadas) do
+            aba.Frame.Visible = false
+            aba.Button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            aba.Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            local stroke = aba.Button:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Color = Color3.fromRGB(80, 80, 80) stroke.Thickness = 1 stroke.Transparency = 0 end
+        end
+        abaAlvo.Frame.Visible = true
+        abaAlvo.Button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        abaAlvo.Button.TextColor3 = Color3.fromRGB(0, 0, 0)
+        local stroke = abaAlvo.Button:FindFirstChildOfClass("UIStroke")
+        if stroke then
+            stroke.Thickness = 2 stroke.Color = Color3.fromRGB(255, 255, 255)
+            activeTween = TweenService:Create(stroke, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Transparency = 0.5})
+            activeTween:Play()
+        end
+    end
+
+    local function CriarAba(nomeAba)
+        local tabBtn = Create("TextButton", TabListFrame, {
+            Name = nomeAba .. "Btn", Size = UDim2.new(1, -4, 0, 30),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0), Text = nomeAba,
+            TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 12, ZIndex = 6
+        }, 4, {Color = Color3.fromRGB(80, 80, 80), Thickness = 1})
+
+        local tabFrame = Create("ScrollingFrame", ContentArea, {
+            Name = nomeAba .. "Frame", Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.new(0, 0, 0, 0),
+            ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255),
+            Visible = false, ZIndex = 4
+        })
+
+        local layout = Create("UIListLayout", tabFrame, {
+            SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8)
+        })
+
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            tabFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+        end)
+
+        local dadosAba = { Button = tabBtn, Frame = tabFrame, Name = nomeAba }
+        table.insert(AbasCriadas, dadosAba)
+
+        tabBtn.MouseButton1Click:Connect(function() SelecionarAba(dadosAba) end)
+        return tabFrame
+    end
+
+    local function CriarToggle(parent, titulo, descricao, callback)
+        local frame = Create("Frame", parent, {
+            Size = UDim2.new(1, -10, 0, 50),
+            BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+            ZIndex = 5
+        }, 6, {Color = Color3.fromRGB(60, 60, 60), Thickness = 1})
+
+        Create("TextLabel", frame, {
+            Size = UDim2.new(1, -70, 0, 20),
+            Position = UDim2.new(0, 10, 0, 6),
+            BackgroundTransparency = 1,
+            Text = titulo,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            Font = FONTE_PROJETO,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 6
+        })
+
+        Create("TextLabel", frame, {
+            Size = UDim2.new(1, -70, 0, 20),
+            Position = UDim2.new(0, 10, 0, 24),
+            BackgroundTransparency = 1,
+            Text = descricao,
+            TextColor3 = Color3.fromRGB(150, 150, 150),
+            Font = Enum.Font.GothamBold,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextWrapped = true,
+            ZIndex = 6
+        })
+
+        local switchBg = Create("Frame", frame, {
+            Size = UDim2.new(0, 44, 0, 22),
+            Position = UDim2.new(1, -54, 0.5, -11),
+            BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+            ZIndex = 6
+        }, 11, {Color = Color3.fromRGB(100, 100, 100), Thickness = 1})
+
+        local switchPin = Create("Frame", switchBg, {
+            Size = UDim2.new(0, 16, 0, 16),
+            Position = UDim2.new(0, 3, 0.5, -8),
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            ZIndex = 7
+        }, 8)
+
+        local active = false
+        local triggerBtn = Create("TextButton", switchBg, {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            ZIndex = 8
+        })
+
+        triggerBtn.MouseButton1Click:Connect(function()
+            active = not active
+            local info = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            if active then
+                TweenService:Create(switchBg, info, {BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+                TweenService:Create(switchPin, info, {Position = UDim2.new(1, -19, 0.5, -8), BackgroundColor3 = Color3.fromRGB(0, 0, 0)}):Play()
+            else
+                TweenService:Create(switchBg, info, {BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play()
+                TweenService:Create(switchPin, info, {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+            end
+            callback(active)
+        end)
+    end
+
+    local Aba1Frame  = CriarAba("MENU")
+    local Aba2Frame  = CriarAba("PROTEÇÕES")
+    local Aba3Frame  = CriarAba("FE")
+    local Aba4Frame  = CriarAba("BOMBAS")
+    local Aba5Frame  = CriarAba("LAG SERVER")
+    local Aba6Frame  = CriarAba("RAID")
+    local Aba7Frame  = CriarAba("ALERTAR")
+    local Aba8Frame  = CriarAba("ENVIAR PARA O SITE")
+    local Aba9Frame  = CriarAba("SERVIDORES")
+    local Aba10Frame = CriarAba("REGRAS")
+    local Aba11Frame = CriarAba("CONFIGURAR")
+    local Aba12Frame = CriarAba("CRÉDITOS")
+    local Aba13Frame = CriarAba("NUKEKRALH")
+    local Aba14Frame = CriarAba("SOUND FINDER")
+
+    local menuHeader = Create("Frame", Aba1Frame, {
+        Size = UDim2.new(1, -10, 0, 80), BackgroundColor3 = Color3.fromRGB(15, 15, 15), ZIndex = 5
+    }, 6, {Color = Color3.fromRGB(255, 255, 255), Thickness = 1})
+
+    Create("ImageLabel", menuHeader, {
+        Size = UDim2.new(0, 55, 0, 55), Position = UDim2.new(0, 12, 0.5, -27.5),
+        BackgroundTransparency = 1, Image = "rbxassetid://132599109024812", ZIndex = 6
+    }, 28)
+
+    Create("TextLabel", menuHeader, {
+        Size = UDim2.new(1, -80, 0, 24), Position = UDim2.new(0, 75, 0, 16),
+        BackgroundTransparency = 1, Text = "BEM-VINDO, " .. string.upper(player.DisplayName) .. "!",
+        TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    Create("TextLabel", menuHeader, {
+        Size = UDim2.new(1, -80, 0, 18), Position = UDim2.new(0, 75, 0, 42),
+        BackgroundTransparency = 1, Text = "LEKSON HUB BY KANJUD | v1.0",
+        TextColor3 = Color3.fromRGB(180, 180, 180), Font = Enum.Font.GothamBold, TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    local statusCard = Create("Frame", Aba1Frame, {
+        Size = UDim2.new(1, -10, 0, 110), BackgroundColor3 = Color3.fromRGB(10, 10, 10), ZIndex = 5
+    }, 6, {Color = Color3.fromRGB(255, 255, 255), Thickness = 1})
+
+    Create("TextLabel", statusCard, {
+        Size = UDim2.new(1, -20, 0, 22), Position = UDim2.new(0, 12, 0, 8),
+        BackgroundTransparency = 1, Text = "[ MONITORAMENTO DO SERVIDOR ]",
+        TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    local countLabel = Create("TextLabel", statusCard, {
+        Size = UDim2.new(0.5, -12, 0, 18), Position = UDim2.new(0, 12, 0, 35),
+        BackgroundTransparency = 1, Text = "Jogadores no Servidor: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers,
+        TextColor3 = Color3.fromRGB(200, 200, 200), Font = Enum.Font.GothamBold, TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    local targetLabel = Create("TextLabel", statusCard, {
+        Size = UDim2.new(0.5, -12, 0, 18), Position = UDim2.new(0, 12, 0, 55),
+        BackgroundTransparency = 1, Text = "Alvos Detectados: Analisando...",
+        TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.GothamBold, TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    Create("TextLabel", statusCard, {
+        Size = UDim2.new(0.5, -12, 0, 18), Position = UDim2.new(0.5, 0, 0, 35),
+        BackgroundTransparency = 1, Text = "Estabilidade: OTIMIZADA",
+        TextColor3 = Color3.fromRGB(200, 200, 200), Font = Enum.Font.GothamBold, TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    Create("TextLabel", statusCard, {
+        Size = UDim2.new(0.5, -12, 0, 18), Position = UDim2.new(0.5, 0, 0, 55),
+        BackgroundTransparency = 1, Text = "Status Anti-Mandrake: PRONTO",
+        TextColor3 = Color3.fromRGB(255, 255, 255), Font = Enum.Font.GothamBold, TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    Create("Frame", statusCard, {
+        Size = UDim2.new(1, -24, 0, 1), Position = UDim2.new(0, 12, 0, 78),
+        BackgroundColor3 = Color3.fromRGB(60, 60, 60), BorderSizePixel = 0, ZIndex = 6
+    })
+
+    Create("TextLabel", statusCard, {
+        Size = UDim2.new(1, -24, 0, 20), Position = UDim2.new(0, 12, 0, 83),
+        BackgroundTransparency = 1, Text = "Dica: Utilize a aba 'PROTEÇÕES' antes de iniciar qualquer ação de RAID.",
+        TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.GothamBold, TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    local logCard = Create("Frame", Aba1Frame, {
+        Size = UDim2.new(1, -10, 0, 125), BackgroundColor3 = Color3.fromRGB(5, 5, 5), ZIndex = 5
+    }, 6, {Color = Color3.fromRGB(255, 255, 255), Thickness = 1})
+
+    Create("TextLabel", logCard, {
+        Size = UDim2.new(1, -20, 0, 20), Position = UDim2.new(0, 12, 0, 6),
+        BackgroundTransparency = 1, Text = "[ TERMINAL RADAR MATRIX ]",
+        TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    local logScroll = Create("ScrollingFrame", logCard, {
+        Size = UDim2.new(1, -24, 0, 88), Position = UDim2.new(0, 12, 0, 28),
+        BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.new(0, 0, 0, 0),
+        ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255), ZIndex = 6
+    })
+
+    local logLayout = Create("UIListLayout", logScroll, {
+        SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 3)
+    })
+
+    logLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        logScroll.CanvasSize = UDim2.new(0, 0, 0, logLayout.AbsoluteContentSize.Y)
+        logScroll.CanvasPosition = Vector2.new(0, logLayout.AbsoluteContentSize.Y)
+    end)
+
+    local function AddLog(msg)
+        local timeStamp = os.date("%H:%M:%S")
+        Create("TextLabel", logScroll, {
+            Size = UDim2.new(1, 0, 0, 14), BackgroundTransparency = 1,
+            Text = "> [" .. timeStamp .. "] " .. msg, TextColor3 = Color3.fromRGB(200, 200, 200),
+            Font = Enum.Font.Code, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7
+        })
+    end
+
+    AddLog("Lekson Engine inicializado com sucesso.")
+    AddLog("Módulos de proteção carregados.")
+
+    CriarToggle(Aba2Frame, "BYPASS PROP", "Permite colocar props nas casas de outros jogadores sem restrição.", function(val)
+        ProtectionEngine.PropBypass.Active = val
+        ProtectionEngine.TogglePropBypass(val)
+        AddLog("Prop Bypass: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    CriarToggle(Aba2Frame, "ANTI COLLISION", "Fica completamente imune a flings de carros, portas e objetos física.", function(val)
+        ProtectionEngine.ToggleAntiCollision(val)
+        AddLog("Anti Collision: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    CriarToggle(Aba2Frame, "ANTI SIT", "Impede você de sentar em qualquer banco, cadeira ou veículo do mapa.", function(val)
+        ProtectionEngine.ToggleAntiSit(val)
+        AddLog("Anti Sit: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    CriarToggle(Aba2Frame, "ANTI CRASH", "Bloqueia scripts visuais de projéteis e travamentos do client.", function(val)
+        ProtectionEngine.ToggleAntiCrash(val)
+        AddLog("Anti Crash: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    CriarToggle(Aba2Frame, "ANTI VOID", "Elimina a barreira de morte do mapa para evitar caindo no void.", function(val)
+        ProtectionEngine.ToggleAntiVoid(val)
+        AddLog("Anti Void: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    CriarToggle(Aba2Frame, "ANTI LAG SERVER", "Remove cópias duplicadas de ferramentas (+5) do inventário automaticamente.", function(val)
+        ProtectionEngine.AntiLag.Active = val
+        AddLog("Anti Lag Server: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    CriarToggle(Aba2Frame, "ANTI SKYBOX / NUKE", "Destrói elementos de avatares suspeitos que tentem crashar ou carregar nukes.", function(val)
+        ProtectionEngine.ToggleAntiNuke(val)
+        AddLog("Anti Skybox/Nuke: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    CriarToggle(Aba3Frame, "SPAM TOOLS (FE)", "Puxa continuamente todas as ferramentas do mapa via servidor.", function(val)
+        FEEngine.ToggleToolsSpammer(val)
+        AddLog("Spam Tools FE: " .. (val and "ATIVADO" or "DESATIVADO"))
+    end)
+
+    local function CriarSecaoTexto(parent, titulo, desc)
+        local f = Create("Frame", parent, {Size = UDim2.new(1, -10, 0, 70), BackgroundColor3 = Color3.fromRGB(12, 12, 12)}, 6, {Color = Color3.fromRGB(60, 60, 60), Thickness = 1})
+        Create("TextLabel", f, {Size = UDim2.new(1, -20, 0, 20), Position = UDim2.new(0, 10, 0, 8), BackgroundTransparency = 1, Text = titulo, TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+        Create("TextLabel", f, {Size = UDim2.new(1, -20, 0, 35), Position = UDim2.new(0, 10, 0, 28), BackgroundTransparency = 1, Text = desc, TextColor3 = Color3.fromRGB(180, 180, 180), Font = Enum.Font.GothamBold, TextSize = 10, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left})
+    end
+
+    CriarSecaoTexto(Aba4Frame, "SISTEMA DE BOMBAS", "Ative recursos de explosivos e explosões customizadas para o servidor.")
+    CriarToggle(Aba4Frame, "AUTO DETONAR", "Aciona eventos de explosão sincronizados.", function(val) AddLog("Auto Detonar: " .. tostring(val)) end)
+
+    CriarSecaoTexto(Aba5Frame, "LAG SERVER TOOLS", "Ferramentas para estressar a conexão e criar instabilidade controlada.")
+    CriarToggle(Aba5Frame, "STRESS PACKETS", "Envia requisições repetidas para o servidor.", function(val) AddLog("Stress Packets: " .. tostring(val)) end)
+
+    CriarSecaoTexto(Aba6Frame, "PAINEL DE RAID", "Ferramentas rápidas para invasão e dominação de áreas.")
+    CriarToggle(Aba6Frame, "MODO INVASÃO", "Aumenta a velocidade e desativa colisões com aliados.", function(val) AddLog("Modo Invasão: " .. tostring(val)) end)
+
+    CriarSecaoTexto(Aba8Frame, "INTEGRAÇÃO COM SITE", "Sincronize os dados de log diretamente com a API externa.")
+    CriarToggle(Aba8Frame, "SYNC AUTOMÁTICO", "Envia relatórios a cada 5 minutos.", function(val) AddLog("Sync Web: " .. tostring(val)) end)
+
+    CriarSecaoTexto(Aba9Frame, "GERENCIADOR DE SERVIDORES", "Explore servidores vazios ou procure instâncias com amigos.")
+    CriarToggle(Aba9Frame, "AUTO HOP", "Muda de servidor caso detecte moderadores.", function(val) AddLog("Auto Hop: " .. tostring(val)) end)
+
+    CriarSecaoTexto(Aba10Frame, "REGRAS DA COMUNIDADE", "1. Respeite os membros.\n2. Use o Anti-Mandrakes com sabedoria.\n3. Não divulgue exploits publicamente.")
+    CriarSecaoTexto(Aba11Frame, "CONFIGURAÇÕES DO HUB", "Personalize o tema, opacidade e atalhos rápidos do painel.")
+    CriarSecaoTexto(Aba12Frame, "CRÉDITOS DO PROJETO", "Desenvolvido por KANJUD.\nComunidade LEKSON HUB - 2026.")
+
+    local skyboxTrack = nil
+    local rigidTrack = nil
+    local savedNukeBody = {}
+
+    local function stopAllAnimations()
+        if rigidTrack then pcall(function() rigidTrack:Stop() rigidTrack:Destroy() end) rigidTrack = nil end
+        if skyboxTrack then pcall(function() skyboxTrack:Stop() skyboxTrack:Destroy() end) skyboxTrack = nil end
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                local animator = hum:FindFirstChild("Animator")
+                if animator then
+                    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                        if track.Animation then
+                            local id = track.Animation.AnimationId
+                            if id == "rbxassetid://70883871260184" or id == "rbxassetid://3695333486" then
+                                pcall(function() track:Stop() end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    CriarToggle(Aba13Frame, "NUKE", "Ativa o nuke do avatar e animações personalizadas.", function(val)
+        if val then
+            local char = player.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    pcall(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("AvatarEditorOutfitCodes"):InvokeServer("Load", "BH-AE-124374aaf44e4a9b96eeb9e4f6398124")
+                    end)
+                    task.wait(2)
+                    local desc = hum:GetAppliedDescription()
+                    savedNukeBody = { Torso = desc.Torso, RightArm = desc.RightArm, LeftArm = desc.LeftArm, RightLeg = desc.RightLeg, LeftLeg = desc.LeftLeg, Head = desc.Head }
+                    task.wait(0.2)
+                    pcall(function()
+                        game:GetService("ReplicatedStorage").Remotes.ChangeCharacterBody:InvokeServer({[1]=123402086843885,[2]=100839513065432,[3]=78300682916056,[4]=86276701020724,[5]=78409653958165,[6]=15093053680})
+                    end)
+                    task.wait(0.3)
+                    local newAnim = Instance.new("Animation")
+                    newAnim.AnimationId = "rbxassetid://70883871260184"
+                    skyboxTrack = hum:LoadAnimation(newAnim)
+                    skyboxTrack.Priority = Enum.AnimationPriority.Action4
+                    skyboxTrack:Play(0.1, 1, 0.01)
+                    task.wait(0.5)
+                    local plankAnim = Instance.new("Animation")
+                    plankAnim.AnimationId = "rbxassetid://3695333486"
+                    rigidTrack = hum:LoadAnimation(plankAnim)
+                    rigidTrack.Priority = Enum.AnimationPriority.Movement
+                    rigidTrack:Play(0.1, 1, 0)
+                end
+            end
+        else
+            stopAllAnimations()
+            task.wait(0.2)
+            if next(savedNukeBody) then
+                local char = player.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        pcall(function()
+                            game:GetService("ReplicatedStorage").Remotes.ChangeCharacterBody:InvokeServer({[1]=savedNukeBody.Torso, [2]=savedNukeBody.RightArm, [3]=savedNukeBody.LeftArm, [4]=savedNukeBody.RightLeg, [5]=savedNukeBody.LeftLeg, [6]=savedNukeBody.Head})
+                        end)
+                        savedNukeBody = {}
+                    end
+                end
+            end
+        end
+    end)
+
+    local soundFinderBtn = Create("TextButton", Aba14Frame, {
+        Size = UDim2.new(1, -10, 0, 40), BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+        Text = "Abrir Sound Finder Moderno", TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = FONTE_PROJETO, TextSize = 13, ZIndex = 5
+    }, 6, {Color = Color3.fromRGB(100, 100, 100), Thickness = 1})
+
+    soundFinderBtn.MouseButton1Click:Connect(function()
+        if game.CoreGui:FindFirstChild("SoundFinderUI") then game.CoreGui.SoundFinderUI:Destroy() end
+        local sg = Instance.new("ScreenGui", game.CoreGui)
+        sg.Name = "SoundFinderUI"
+
+        local frame = Instance.new("Frame", sg)
+        frame.Size = UDim2.new(0, 450, 0, 350)
+        frame.Position = UDim2.new(0.5, -225, 0.5, -175)
+        frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        frame.Active = true
+        frame.Draggable = true 
+
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+        local title = Instance.new("TextLabel", frame)
+        title.Size = UDim2.new(1, 0, 0, 40)
+        title.Text = "  SOUND FINDER PRO"
+        title.Font = Enum.Font.GothamBold
+        title.TextColor3 = Color3.new(1, 1, 1)
+        title.BackgroundTransparency = 1
+        title.TextXAlignment = Enum.TextXAlignment.Left
+
+        local scroll = Instance.new("ScrollingFrame", frame)
+        scroll.Size = UDim2.new(1, -20, 1, -60)
+        scroll.Position = UDim2.new(0, 10, 0, 50)
+        scroll.BackgroundTransparency = 1
+        scroll.ScrollBarThickness = 4
+
+        local layout = Instance.new("UIListLayout", scroll)
+        layout.Padding = UDim.new(0, 5)
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+        end)
+
+        local function createSoundButton(sound)
+            if not sound:IsA("Sound") or sound.SoundId == "" then return end
+            local cleanId = string.match(sound.SoundId, "%d+") or "0"
+            
+            local btn = Instance.new("TextButton", scroll)
+            btn.Size = UDim2.new(1, 0, 0, 35)
+            btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            btn.Text = "  " .. sound.Name
+            btn.TextColor3 = Color3.new(1, 1, 1)
+            btn.Font = Enum.Font.Gotham
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+            local idLabel = Instance.new("TextLabel", btn)
+            idLabel.Size = UDim2.new(0, 100, 1, 0)
+            idLabel.Position = UDim2.new(1, -110, 0, 0)
+            idLabel.Text = "ID: " .. cleanId
+            idLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+            idLabel.BackgroundTransparency = 1
+            
+            btn.MouseButton1Click:Connect(function()
+                safeClipboard(cleanId)
+                local oldText = idLabel.Text
+                idLabel.Text = "COPIED!"
+                idLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                task.wait(1)
+                idLabel.Text = oldText
+                idLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+            end)
+        end
+
+        for _, v in pairs(game:GetDescendants()) do createSoundButton(v) end
+        game.DescendantAdded:Connect(function(d) createSoundButton(d) end)
+    end)
+
+    local alertCard = Create("Frame", Aba7Frame, {
+        Size = UDim2.new(1, -10, 0, 310),
+        BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+        ZIndex = 5
+    }, 8, {Color = Color3.fromRGB(60, 60, 60), Thickness = 1})
+
+    Create("TextLabel", alertCard, {
+        Size = UDim2.new(1, -20, 0, 22), Position = UDim2.new(0, 10, 0, 8),
+        BackgroundTransparency = 1, Text = "[ PAINEL DE DENÚNCIA DE JOGADOR ]",
+        TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    Create("TextLabel", alertCard, {
+        Size = UDim2.new(1, -20, 0, 16), Position = UDim2.new(0, 10, 0, 30),
+        BackgroundTransparency = 1, Text = "Verifica se o acusado está presente no servidor antes de emitir o alerta.",
+        TextColor3 = Color3.fromRGB(150, 150, 150), Font = Enum.Font.GothamBold, TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6
+    })
+
+    local userBox = Create("TextBox", alertCard, {
+        Size = UDim2.new(1, -20, 0, 36), Position = UDim2.new(0, 10, 0, 55),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 18), Text = "",
+        PlaceholderText = "Nome ou DisplayName do Jogador...",
+        TextColor3 = Color3.fromRGB(255, 255, 255), PlaceholderColor3 = Color3.fromRGB(100, 100, 100),
+        Font = Enum.Font.SourceSans, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false, ZIndex = 6
+    }, 6, {Color = Color3.fromRGB(80, 80, 80), Thickness = 1})
+    Create("UIPadding", userBox, {PaddingLeft = UDim.new(0, 10)})
+
+    local reasonBox = Create("TextBox", alertCard, {
+        Size = UDim2.new(1, -20, 0, 130), Position = UDim2.new(0, 10, 0, 100),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 18), Text = "",
+        PlaceholderText = "Escreva o motivo da acusação...",
+        TextColor3 = Color3.fromRGB(255, 255, 255), PlaceholderColor3 = Color3.fromRGB(100, 100, 100),
+        Font = Enum.Font.SourceSans, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top, MultiLine = true, ClearTextOnFocus = false, ZIndex = 6
+    }, 6, {Color = Color3.fromRGB(80, 80, 80), Thickness = 1})
+    Create("UIPadding", reasonBox, {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8)})
+
+    local sendBtn = Create("TextButton", alertCard, {
+        Size = UDim2.new(1, -20, 0, 38), Position = UDim2.new(0, 10, 0, 240),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255), Text = "Enviar Alerta",
+        TextColor3 = Color3.fromRGB(0, 0, 0), Font = FONTE_PROJETO, TextSize = 13,
+        AutoButtonColor = false, ZIndex = 6
+    }, 6, {Color = Color3.fromRGB(200, 200, 200), Thickness = 1})
+
+    local function findLocalPlayer(inputName)
+        if not inputName or inputName == "" then return nil end
+        local cleanInput = string.lower(inputName)
+        for _, target in ipairs(Players:GetPlayers()) do
+            if string.lower(target.Name) == cleanInput or string.lower(target.DisplayName) == cleanInput then
+                return target
+            end
+        end
+        return nil
+    end
+
+    local function sendToWebhook(targetPlayer, acusacao)
+        if not requestFunc then return false end
+        local placeId, jobId = game.PlaceId, game.JobId
+        local code = string.format("local TeleportService = game:GetService(\"TeleportService\")\nTeleportService:TeleportToPlaceInstance(%d, \"%s\", game:GetService(\"Players\").LocalPlayer)", placeId, jobId)
+
+        local payload = {
+            username = "Lekson Alerts",
+            embeds = {{
+                title = "🚨 Alerta de Denúncia de Jogador",
+                color = 16724787,
+                fields = {
+                    { name = "Acusado (Detectado)", value = string.format("**User:** %s\n**Display:** %s\n**ID:** %d", targetPlayer.Name, targetPlayer.DisplayName, targetPlayer.UserId), inline = false },
+                    { name = "Acusação", value = acusacao, inline = false },
+                    { name = "Denunciado por", value = player.Name .. " (" .. player.UserId .. ")", inline = true },
+                    { name = "Players Online", value = tostring(#Players:GetPlayers()), inline = true },
+                    { name = "Código de Teleporte", value = string.format("```lua\n%s\n```", code), inline = false }
+                },
+                footer = { text = "Sistema de Verificação Lekson Hub" }
+            }}
+        }
+
+        local success = pcall(function()
+            return requestFunc({
+                Url = "https://discord.com/api/webhooks/1548761370915373168/v29qttsWZDfm9F8lbAOsp0fgnfkjEN0LPGaGD5z-IiwtzGXfEGqDi9MQv1yVREwAxaXE",
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        end)
+        return success
+    end
+
+    sendBtn.MouseButton1Click:Connect(function()
+        local targetName = userBox.Text
+        local acusacao = reasonBox.Text
+
+        if targetName == "" or acusacao == "" then
+            sendBtn.Text = "Preencha Todos os Campos!"
+            sendBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+            task.wait(1.5)
+            sendBtn.Text = "Enviar Alerta"
+            sendBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+            return
+        end
+
+        local targetPlayer = findLocalPlayer(targetName)
+        if not targetPlayer then
+            sendBtn.Text = "Usuário Ausente do Servidor!"
+            sendBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+            task.wait(1.8)
+            sendBtn.Text = "Enviar Alerta"
+            sendBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+            return
+        end
+
+        sendBtn.Text = "Enviando..."
+        sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TweenService:Create(sendBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(100, 100, 100)}):Play()
+
+        local ok = sendToWebhook(targetPlayer, acusacao)
+        if ok then
+            sendBtn.Text = "Alerta Enviado com Sucesso!"
+            userBox.Text = ""
+            reasonBox.Text = ""
+            AddLog("Alerta enviado contra: " .. targetPlayer.Name)
+        else
+            sendBtn.Text = "Falha ao Enviar"
+        end
+
+        task.wait(1.5)
+        sendBtn.Text = "Enviar Alerta"
+        sendBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+        TweenService:Create(sendBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    end)
+
+    task.spawn(function()
+        while task.wait(3) do
+            if not MainFrame.Parent then break end
+            local currentPlayers = Players:GetPlayers()
+            countLabel.Text = "Jogadores no Servidor: " .. #currentPlayers .. "/" .. Players.MaxPlayers
+            
+            local mandrakesEncontrados = 0
+            for _, p in ipairs(currentPlayers) do
+                if p ~= player then
+                    local name = p.Name:lower()
+                    local dName = p.DisplayName:lower()
+                    if name:find("v3") or name:find("777") or dName:find("mandrake") or dName:find("paty") or dName:find("rbx") then
+                        mandrakesEncontrados = mandrakesEncontrados + 1
+                    end
+                end
+            end
+            
+            if mandrakesEncontrados > 0 then
+                targetLabel.Text = "Alvos Detectados: " .. mandrakesEncontrados .. " Suspeito(s)"
+                targetLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            else
+                targetLabel.Text = "Alvos Detectados: Nenhum no Radar"
+                targetLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+            end
+        end
+    end)
+
+    if #AbasCriadas > 0 then SelecionarAba(AbasCriadas[1]) end
+end
+
+local function startHubMain()
+    pcall(function()
+        local remoteEvent = ReplicatedStorage:FindFirstChild("RE") and ReplicatedStorage.RE:FindFirstChild("1RPNam1eTex1t")
+        if remoteEvent then
+            remoteEvent:FireServer("RolePlayName", "Lekson Hub")
+            task.wait(0.1)
+            remoteEvent:FireServer("RolePlayBio", "LEKSON HUB ON TOP!")
+        end
+    end)
+
+    local ScreenGui = Create("ScreenGui", playerGui, { Name = "⚡", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+    local ToggleButton = Create("ImageButton", ScreenGui, { Name = "ToggleMenu", Size = UDim2.new(0, 80, 0, 80), Position = UDim2.new(0, 15, 0, 140), BackgroundTransparency = 1, Image = "rbxassetid://132599109024812" })
+
+    SetupDrag(ToggleButton)
+
+    local MainFrame = Create("Frame", ScreenGui, { Name = "MainFrame", Size = UDim2.new(0, 480, 0, 380), Position = UDim2.new(0.5, -240, 0.5, -190), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 1, Visible = true })
+    SetupDrag(MainFrame)
+    ToggleButton.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+    Create("TextLabel", MainFrame, { Size = UDim2.new(0, 140, 0, 30), Position = UDim2.new(0, 12, 0, 4), BackgroundTransparency = 1, Text = "Lekson Hub |", TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left })
+    Create("TextLabel", MainFrame, { Size = UDim2.new(0, 120, 0, 30), Position = UDim2.new(0.5, -55, 0, 4), BackgroundTransparency = 1, Text = "Anti-Mandrakes", TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Center })
+    
+    local CloseButton = Create("ImageButton", MainFrame, { Name = "CloseButton", Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -26, 0, 10), BackgroundTransparency = 1, Image = "rbxassetid://98235327129327" })
+    CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+    Create("Frame", MainFrame, { Size = UDim2.new(1, -16, 0, 1), Position = UDim2.new(0, 8, 0, 36), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0 })
+
+    local CommunityContainer = Create("ScrollingFrame", MainFrame, { Size = UDim2.new(1, -16, 1, -75), Position = UDim2.new(0, 8, 0, 44), BackgroundTransparency = 1, CanvasSize = UDim2.new(0, 0, 0, 320), ScrollBarThickness = 4 })
+
+    Create("ImageLabel", CommunityContainer, { Size = UDim2.new(0, 65, 0, 65), Position = UDim2.new(0.5, -32, 0, 10), BackgroundTransparency = 1, Image = "rbxassetid://132599109024812" }, 12, {Color = Color3.fromRGB(255, 255, 255), Thickness = 1})
+    Create("TextLabel", CommunityContainer, { Size = UDim2.new(1, 0, 0, 25), Position = UDim2.new(0, 0, 0, 85), BackgroundTransparency = 1, Text = "LEKSON HUB COMMUNITY", TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Center })
+    Create("TextLabel", CommunityContainer, { Size = UDim2.new(1, -20, 0, 70), Position = UDim2.new(0, 10, 0, 112), BackgroundTransparency = 1, Text = "• Foco: Destruição total de Patys e Mandrakes\n• Postura: 100% Anti-Webs\n• O terror do servidor!", TextColor3 = Color3.fromRGB(200, 200, 200), Font = Enum.Font.GothamBold, TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Center })
+
+    local CopyLinkBtn = Create("TextButton", CommunityContainer, { Size = UDim2.new(0, 220, 0, 32), Position = UDim2.new(0.5, -110, 0, 190), BackgroundColor3 = Color3.fromRGB(20, 20, 20), Text = "COPY WHATSAPP CHANNEL", TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 13 }, 8, {Color = Color3.fromRGB(37, 211, 102), Thickness = 1})
+    
+    CopyLinkBtn.MouseButton1Click:Connect(function()
+        safeClipboard("https://whatsapp.com/channel/0029VbCM1hn9xVJbkKV9gy42")
+        CopyLinkBtn.Text = "LINK COPIED!"
+        task.wait(1.5)
+        CopyLinkBtn.Text = "COPY WHATSAPP CHANNEL"
+    end)
+
+    local ContinueBtn = Create("TextButton", CommunityContainer, { Size = UDim2.new(0, 220, 0, 32), Position = UDim2.new(0.5, -110, 0, 232), BackgroundColor3 = Color3.fromRGB(255, 255, 255), Text = "CONTINUAR", TextColor3 = Color3.fromRGB(0, 0, 0), Font = FONTE_PROJETO, TextSize = 13 }, 8, {Color = Color3.fromRGB(200, 200, 200), Thickness = 1})
+    
+    ContinueBtn.MouseButton1Click:Connect(function()
+        ContinueBtn.Active = false
+        ToggleButton:Destroy()
+        
+        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        TweenService:Create(MainFrame, tweenInfo, {BackgroundTransparency = 1}):Play()
+        
+        for _, descendant in ipairs(MainFrame:GetDescendants()) do
+            if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+                TweenService:Create(descendant, tweenInfo, {TextTransparency = 1, BackgroundTransparency = 1}):Play()
+            elseif descendant:IsA("ImageLabel") or descendant:IsA("ImageButton") then
+                TweenService:Create(descendant, tweenInfo, {ImageTransparency = 1, BackgroundTransparency = 1}):Play()
+            elseif descendant:IsA("Frame") and descendant ~= MainFrame then
+                TweenService:Create(descendant, tweenInfo, {BackgroundTransparency = 1}):Play()
+            end
+        end
+        
+        task.wait(0.5)
+        MainFrame:Destroy()
+
+        local transitionGui = Create("ScreenGui", playerGui, { Name = "LeksonTransition", IgnoreGuiInset = true, DisplayOrder = 9999, ResetOnSpawn = false })
+        local blurEffect = Create("BlurEffect", Lighting, { Name = "LeksonBlur", Size = 0 })
+
+        local topBar = Create("Frame", transitionGui, { Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 100 })
+        local bottomBar = Create("Frame", transitionGui, { Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 101 })
+        local cinematicImage = Create("ImageLabel", transitionGui, { Name = "CinematicLogo", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1, Image = "rbxassetid://16615526028", ImageTransparency = 1, Rotation = 0, ZIndex = 105 })
+
+        local cinemaTweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        TweenService:Create(topBar, cinemaTweenInfo, {Size = UDim2.new(1, 0, 0.15, 0)}):Play()
+        TweenService:Create(bottomBar, cinemaTweenInfo, {Size = UDim2.new(1, 0, 0.85, 0), Position = UDim2.new(0, 0, 0.85, 0)}):Play()
+        TweenService:Create(blurEffect, cinemaTweenInfo, {Size = 22}):Play()
+
+        local imageInInfo = TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        TweenService:Create(cinematicImage, imageInInfo, { Size = UDim2.new(0, 180, 0, 180), ImageTransparency = 0, Rotation = 360 }):Play()
+
+        task.spawn(function()
+            task.wait(1.2)
+            local imageOutInfo = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            TweenService:Create(cinematicImage, imageOutInfo, { Size = UDim2.new(0, 0, 0, 0), ImageTransparency = 1, Rotation = 720 }):Play()
+
+            TweenService:Create(topBar, TweenInfo.new(0.4), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            TweenService:Create(bottomBar, TweenInfo.new(0.4), {Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 1, 0)}):Play()
+            TweenService:Create(blurEffect, TweenInfo.new(0.4), {Size = 0}):Play()
+            
+            task.wait(0.4)
+            transitionGui:Destroy()
+            blurEffect:Destroy()
+
+            startUltraUI()
+        end)
+    end)
+
+    Create("TextLabel", MainFrame, { Name = "FooterCredits", Size = UDim2.new(1, -16, 0, 22), Position = UDim2.new(0, 8, 1, -26), BackgroundTransparency = 1, Text = "•LEKSON HUB• | by kanjud", TextColor3 = Color3.fromRGB(255, 255, 255), Font = FONTE_PROJETO, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Center })
+end
+
+-- ==================== ANIMASI LOGIN BARU ====================
+local screenGui = Create("ScreenGui", playerGui, { Name = "LeksonHubLoading", IgnoreGuiInset = true, ResetOnSpawn = false })
+local background = Create("Frame", screenGui, { Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0 })
+
+-- Efek bintang/partikel di background
+local starContainer = Create("Frame", background, { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 1 })
+local stars = {}
+for i = 1, 60 do
+    local star = Create("Frame", starContainer, {
+        Size = UDim2.new(0, math.random(1, 3), 0, math.random(1, 3)),
+        Position = UDim2.new(math.random(), 0, math.random(), 0),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundTransparency = math.random(30, 90) / 100,
+        BorderSizePixel = 0,
+        ZIndex = 1
+    }, math.random(0, 2))
+    table.insert(stars, {obj = star, speed = math.random(20, 80) / 100, dir = math.random(-1, 1) / 100})
+end
+
+-- Scanline effect
+local scanline = Create("Frame", background, {
+    Size = UDim2.new(1, 0, 0, 2),
+    Position = UDim2.new(0, 0, 0, 0),
+    BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+    BackgroundTransparency = 0.8,
+    BorderSizePixel = 0,
+    ZIndex = 2
+})
+
+-- Logo container
+local logoContainer = Create("Frame", background, {
+    Size = UDim2.new(0, 300, 0, 200),
+    Position = UDim2.new(0.5, -150, 0.5, -160),
+    BackgroundTransparency = 1,
+    ZIndex = 3
+})
+
+local logoImage = Create("ImageLabel", logoContainer, {
+    Size = UDim2.new(0, 0, 0, 0),
+    Position = UDim2.new(0.5, 0, 0.4, 0),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://132599109024812",
+    ImageTransparency = 1,
+    ZIndex = 3
+})
+
+-- Title text
+local titleHolder = Create("Frame", background, { Size = UDim2.new(0, 600, 0, 80), Position = UDim2.new(0.5, -300, 0.5, -70), BackgroundTransparency = 1, ZIndex = 4 })
+
+local textData = {
+    {char = "L", offset = 0}, {char = "E", offset = 28}, {char = "K", offset = 56}, {char = "S", offset = 84},
+    {char = "O", offset = 112}, {char = "N", offset = 148}, {char = "H", offset = 182}, {char = "U", offset = 210},
+    {char = "B", offset = 238}, {char = "|", offset = 286}, {char = "B", offset = 314}, {char = "Y", offset = 342},
+    {char = "K", offset = 370}, {char = "A", offset = 398}, {char = "N", offset = 426}, {char = "J", offset = 454},
+    {char = "U", offset = 482}, {char = "D", offset = 510}
+}
+
+local startX = (600 - 540) / 2
+local letterLabels = {}
+
+for _, item in ipairs(textData) do
+    local finalX = startX + item.offset
+    
+    local lGlitch1 = Create("TextLabel", titleHolder, { Size = UDim2.new(0, 35, 0, 60), Position = UDim2.new(0, finalX, 0, 0), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(0, 255, 255), TextSize = 34, Font = Enum.Font.GothamBlack, Text = item.char, TextTransparency = 1, ZIndex = 5 })
+    local lGlitch2 = Create("TextLabel", titleHolder, { Size = UDim2.new(0, 35, 0, 60), Position = UDim2.new(0, finalX, 0, 0), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(255, 0, 85), TextSize = 34, Font = Enum.Font.GothamBlack, Text = item.char, TextTransparency = 1, ZIndex = 5 })
+    local lMain = Create("TextLabel", titleHolder, { Size = UDim2.new(0, 35, 0, 60), Position = UDim2.new(0, finalX, 0, 0), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 34, Font = Enum.Font.GothamBlack, Text = item.char, TextTransparency = 1, ZIndex = 6 })
+
+    table.insert(letterLabels, {main = lMain, g1 = lGlitch1, g2 = lGlitch2, origX = finalX})
+end
+
+-- Progress bar
+local boxContainer = Create("Frame", background, { Size = UDim2.new(0, 0, 0, 2), Position = UDim2.new(0.5, 0, 0.5, 20), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 2, ClipsDescendants = true, ZIndex = 7 })
+local barFill = Create("Frame", boxContainer, { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BorderSizePixel = 0, ZIndex = 8 })
+local percentText = Create("TextLabel", background, { Size = UDim2.new(0, 100, 0, 30), Position = UDim2.new(0.5, -50, 0.5, 45), BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(255, 255, 255), TextSize = 16, Font = Enum.Font.Code, Text = "0%", TextTransparency = 1, ZIndex = 9 })
+
+-- Typing text "MEMUAT..."
+local typingText = Create("TextLabel", background, {
+    Size = UDim2.new(0, 300, 0, 20),
+    Position = UDim2.new(0.5, -150, 0.5, 80),
+    BackgroundTransparency = 1,
+    Text = "",
+    TextColor3 = Color3.fromRGB(150, 150, 150),
+    TextSize = 14,
+    Font = Enum.Font.Code,
+    TextTransparency = 1,
+    ZIndex = 9
+})
+
+-- Animasi background stars + scanline
+local starConn
+starConn = RunService.RenderStepped:Connect(function(dt)
+    if not background.Parent then starConn:Disconnect() return end
+    for _, s in ipairs(stars) do
+        local pos = s.obj.Position
+        local newY = pos.Y.Scale + (s.speed * dt * 0.1)
+        local newX = pos.X.Scale + (s.dir * dt * 0.05)
+        if newY > 1 then newY = 0 newX = math.random() end
+        if newX > 1 then newX = 0 end
+        if newX < 0 then newX = 1 end
+        s.obj.Position = UDim2.new(newX, 0, newY, 0)
+    end
+    scanline.Position = UDim2.new(0, 0, (tick() * 0.3) % 1, 0)
+end)
+
+-- Sequence animasi login
+task.spawn(function()
+    -- Fade in logo
+    task.wait(0.3)
+    TweenService:Create(logoImage, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 120, 0, 120),
+        ImageTransparency = 0
+    }):Play()
+    task.wait(0.8)
+
+    -- Typing "MEMUAT..."
+    local loadingText = "MEMUAT..."
+    local displayed = ""
+    for i = 1, #loadingText do
+        displayed = displayed .. loadingText:sub(i, i)
+        typingText.Text = displayed .. "_"
+        if typingText.TextTransparency > 0 then
+            typingText.TextTransparency = 0
+        end
+        task.wait(0.08)
+    end
+    typingText.Text = displayed
+
+    -- Animasi huruf muncul
+    for _, data in ipairs(letterLabels) do
+        data.main.TextTransparency = 0 data.g1.TextTransparency = 0.3 data.g2.TextTransparency = 0.3
+        local startY = math.random(-150, 150)
+        data.main.Position = UDim2.new(0, data.origX, 0, startY)
+        data.g1.Position = data.main.Position
+        data.g2.Position = data.main.Position
+        
+        local tweenBounce = TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+        TweenService:Create(data.main, tweenBounce, {Position = UDim2.new(0, data.origX, 0, 0)}):Play()
+        TweenService:Create(data.g1, tweenBounce, {Position = UDim2.new(0, data.origX - 3, 0, math.random(-4, 4))}):Play()
+        TweenService:Create(data.g2, tweenBounce, {Position = UDim2.new(0, data.origX + 3, 0, math.random(-4, 4))}):Play()
+        
+        task.wait(0.04)
+    end
+
+    -- Glitch loop
+    local activeGlitch = true
+    task.spawn(function()
+        while activeGlitch do
+            for _, data in ipairs(letterLabels) do
+                if math.random() > 0.6 then
+                    local shakeX, shakeY = math.random(-5, 5), math.random(-3, 3)
+                    data.g1.Position = UDim2.new(0, data.origX + shakeX, 0, shakeY)
+                    data.g2.Position = UDim2.new(0, data.origX - shakeX, 0, -shakeY)
+                    data.g1.TextTransparency = math.random(2, 8) / 10
+                    data.g2.TextTransparency = math.random(2, 8) / 10
+                else
+                    data.g1.Position = UDim2.new(0, data.origX, 0, 0)
+                    data.g2.Position = UDim2.new(0, data.origX, 0, 0)
+                    data.g1.TextTransparency = 1
+                    data.g2.TextTransparency = 1
+                end
+            end
+            task.wait(0.05)
+        end
+    end)
+
+    -- Expand progress bar
+    local expandWidth = TweenService:Create(boxContainer, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 300, 0, 2)})
+    expandWidth:Play()
+    expandWidth.Completed:Wait()
+
+    local expandHeight = TweenService:Create(boxContainer, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 300, 0, 16)})
+    expandHeight:Play()
+    expandHeight.Completed:Wait()
+
+    TweenService:Create(percentText, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+    task.wait(0.2)
+
+    -- Progress fill
+    local duration = 3.5
+    TweenService:Create(barFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+
+    local startTime = tick()
+    while tick() - startTime < duration do
+        local progress = math.clamp(math.floor(((tick() - startTime) / duration) * 100), 0, 100)
+        percentText.Text = progress .. "%"
+        task.wait(0.03)
+    end
+    percentText.Text = "100%"
+    
+    activeGlitch = false
+    for _, data in ipairs(letterLabels) do
+        data.g1.TextTransparency = 1 data.g2.TextTransparency = 1
+        data.g1.Position = UDim2.new(0, data.origX, 0, 0) data.g2.Position = UDim2.new(0, data.origX, 0, 0)
+    end
+    
+    -- Particle burst saat selesai
+    for i = 1, 30 do
+        local particle = Create("Frame", background, {
+            Size = UDim2.new(0, 4, 0, 4),
+            Position = UDim2.new(0.5, 0, 0.5, 20),
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            BorderSizePixel = 0,
+            ZIndex = 10
+        }, 2)
+        local angle = math.random() * math.pi * 2
+        local distance = math.random(100, 400)
+        local targetX = math.cos(angle) * distance
+        local targetY = math.sin(angle) * distance
+        TweenService:Create(particle, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, targetX, 0.5, 20 + targetY),
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, 0, 0, 0)
+        }):Play()
+        task.delay(0.9, function() particle:Destroy() end)
+    end
+    
+    task.wait(0.4)
+
+    -- Fade out
+    local fadeInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(background, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(logoImage, fadeInfo, {ImageTransparency = 1}):Play()
+    TweenService:Create(boxContainer, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(barFill, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(percentText, fadeInfo, {TextTransparency = 1}):Play()
+    TweenService:Create(typingText, fadeInfo, {TextTransparency = 1}):Play()
+
+    for _, data in ipairs(letterLabels) do
+        TweenService:Create(data.main, fadeInfo, {TextTransparency = 1, Position = UDim2.new(0, data.origX, 0, -50)}):Play()
+    end
+
+    task.wait(0.6)
+    screenGui:Destroy()
+
+    applyButtonAnimation()
+    startHubMain()
+end)
